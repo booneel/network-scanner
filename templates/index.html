@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0e14;
+    --bg-soft:#10151f;
+    --panel:#121826;
+    --line:#1e2738;
+    --line-soft:#19202e;
+    --text:#d7dde8;
+    --text-dim:#8693a8;
+    --text-faint:#5a6478;
+    --accent:#3fe0a3;
+    --accent-dim:#2bb389;
+    --cyan:#56c2ff;
+    --amber:#f2b15e;
+    --danger:#ff6b6b;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --sans:'Space Grotesk',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:var(--mono);line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;
+    background-image:
+      linear-gradient(var(--line-soft) 1px,transparent 1px),
+      linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);
+    background-size:42px 42px;opacity:.3;pointer-events:none;z-index:0;
+    -webkit-mask-image:radial-gradient(ellipse at 50% 0%,#000 25%,transparent 75%);
+            mask-image:radial-gradient(ellipse at 50% 0%,#000 25%,transparent 75%);
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:48px 24px 80px;position:relative;z-index:1}
+
+  /* header */
+  .head{margin-bottom:32px}
+  .head .eyebrow{font-size:12px;letter-spacing:.18em;color:var(--accent);text-transform:uppercase;margin-bottom:10px}
+  .head h1{font-family:var(--sans);font-size:clamp(28px,5vw,40px);font-weight:700;letter-spacing:-.01em;color:var(--text)}
+  .head h1 .br{color:var(--accent)}
+  .head p{color:var(--text-dim);font-size:14px;margin-top:8px}
+
+  /* status bar */
+  .status{
+    border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    padding:18px 20px;margin-bottom:22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    transition:border-color .3s;
+  }
+  .status.online{border-color:var(--accent-dim)}
+  .status.offline{border-color:var(--danger)}
+  .status .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;position:relative}
+  .status.online .dot{background:var(--accent);box-shadow:0 0 0 0 rgba(63,224,163,.5);animation:pulse 2s infinite}
+  .status.offline .dot{background:var(--danger)}
+  .status.checking .dot{background:var(--text-faint)}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(63,224,163,.5)}
+    70%{box-shadow:0 0 0 8px rgba(63,224,163,0)}
+    100%{box-shadow:0 0 0 0 rgba(63,224,163,0)}
+  }
+  .status .label{font-size:13px;color:var(--text);font-weight:500}
+  .status .net-detail{margin-left:auto;display:flex;gap:20px;font-size:12px;flex-wrap:wrap}
+  .status .net-detail .item{display:flex;flex-direction:column;gap:2px}
+  .status .net-detail .k{color:var(--text-faint);font-size:11px}
+  .status .net-detail .v{color:var(--cyan)}
+
+  /* control panel */
+  .panel{
+    border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    padding:22px;margin-bottom:22px;
+    transition:opacity .3s;
+  }
+  .panel.disabled{opacity:.4;pointer-events:none}
+  .panel .row{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:11px;color:var(--text-faint);letter-spacing:.05em;text-transform:uppercase}
+  .field input{
+    background:var(--bg-soft);border:1px solid var(--line);border-radius:7px;
+    color:var(--text);font-family:var(--mono);font-size:14px;padding:10px 12px;width:120px;
+    transition:border-color .15s;
+  }
+  .field input:focus{outline:none;border-color:var(--accent)}
+  .scan-btn{
+    font-family:var(--mono);font-size:14px;font-weight:700;
+    background:var(--accent);color:#06231a;border:none;border-radius:7px;
+    padding:11px 24px;cursor:pointer;transition:.16s;
+  }
+  .scan-btn:hover:not(:disabled){background:var(--accent-dim)}
+  .scan-btn:disabled{opacity:.5;cursor:not-allowed}
+  .hint{font-size:11px;color:var(--text-faint);margin-top:12px}
+
+  /* results */
+  .results{margin-top:6px}
+  .results .empty{
+    border:1px dashed var(--line);border-radius:10px;
+    padding:40px 20px;text-align:center;color:var(--text-faint);font-size:13px;
+  }
+  .scanning{
+    display:flex;align-items:center;gap:12px;justify-content:center;
+    padding:40px 20px;color:var(--text-dim);font-size:13px;
+  }
+  .spinner{
+    width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);
+    border-radius:50%;animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .device{
+    border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    margin-bottom:12px;overflow:hidden;
+  }
+  .device-head{
+    display:flex;align-items:center;gap:12px;padding:14px 18px;
+    border-bottom:1px solid var(--line-soft);background:var(--bg-soft);
+  }
+  .device-head .ip{font-size:15px;font-weight:700;color:var(--text)}
+  .device-head .gw-tag{font-size:10px;color:var(--amber);border:1px solid var(--amber);
+    border-radius:4px;padding:2px 7px;letter-spacing:.05em}
+  .device-head .self-tag{font-size:10px;color:var(--cyan);border:1px solid var(--cyan);
+    border-radius:4px;padding:2px 7px;letter-spacing:.05em}
+  .device-head .mac{margin-left:auto;font-size:12px;color:var(--text-faint)}
+  .device-body{padding:14px 18px}
+  .port-list{display:flex;flex-wrap:wrap;gap:8px}
+  .port-chip{
+    display:flex;align-items:center;gap:8px;
+    background:var(--bg-soft);border:1px solid var(--line);border-radius:6px;
+    padding:6px 10px;font-size:12px;
+  }
+  .port-chip .num{color:var(--accent);font-weight:700}
+  .port-chip .proto{color:var(--text-dim)}
+  .no-ports{font-size:12px;color:var(--text-faint)}
+
+  .scan-meta{font-size:11px;color:var(--text-faint);margin-bottom:14px}
+
+  @media(prefers-reduced-motion:reduce){*{animation:none!important}}
+  @media(max-width:560px){
+    .status .net-detail{margin-left:0;width:100%}
+    .device-head .mac{display:none}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="head">
+      <div class="eyebrow">local network tool</div>
+      <h1>Network <span class="br">Scanner</span></h1>
+      <p>같은 네트워크의 기기와 열린 포트를 탐색합니다.</p>
+    </div>
+
+    <!-- 네트워크 상태 -->
+    <div id="status" class="status checking">
+      <span class="dot"></span>
+      <span class="label" id="statusLabel">네트워크 확인 중...</span>
+      <div class="net-detail" id="netDetail"></div>
+    </div>
+
+    <!-- 스캔 패널 -->
+    <div id="panel" class="panel disabled">
+      <div class="row">
+        <div class="field">
+          <label>시작 포트</label>
+          <input id="start" type="number" value="1" min="1" max="65535">
+        </div>
+        <div class="field">
+          <label>끝 포트</label>
+          <input id="end" type="number" value="100" min="1" max="65535">
+        </div>
+        <button class="scan-btn" id="scanBtn" onclick="runScan()">스캔하기</button>
+      </div>
+      <div class="hint">넓은 범위는 시간이 오래 걸립니다. 처음에는 1–100 정도를 권장합니다.</div>
+    </div>
+
+    <!-- 결과 -->
+    <div class="results" id="results">
+      <div class="empty">스캔 결과가 여기에 표시됩니다.</div>
+    </div>
+
+  </div>
+
+<script>
+  let isOnline = false;
+  let isScanning = false;
+  let myIp = null, gateway = null;
+
+  // ===== 네트워크 상태 폴링 =====
+  async function checkNetwork() {
+    if (isScanning) return;  // 스캔 중엔 폴링 건너뛰기
+    try {
+      const res = await fetch("/network");
+      const data = await res.json();
+      applyNetwork(data);
+    } catch (e) {
+      applyNetwork({ connected: false });
+    }
+  }
+
+  function applyNetwork(data) {
+    const status = document.getElementById("status");
+    const label = document.getElementById("statusLabel");
+    const detail = document.getElementById("netDetail");
+    const panel = document.getElementById("panel");
+
+    if (data.connected) {
+      isOnline = true;
+      myIp = data.my_ip; gateway = data.gateway;
+      status.className = "status online";
+      label.textContent = "네트워크 연결됨";
+      detail.innerHTML =
+        `<div class="item"><span class="k">MY IP</span><span class="v">${data.my_ip}</span></div>` +
+        `<div class="item"><span class="k">GATEWAY</span><span class="v">${data.gateway}</span></div>`;
+      panel.classList.remove("disabled");
+    } else {
+      isOnline = false;
+      status.className = "status offline";
+      label.textContent = "네트워크가 연결되지 않았습니다.";
+      detail.innerHTML = "";
+      panel.classList.add("disabled");
+    }
+  }
+
+  // ===== 스캔 =====
+  async function runScan() {
+    if (!isOnline) return;
+    isScanning = true;
+    const btn = document.getElementById("scanBtn");
+    btn.disabled = true;
+
+    const start = document.getElementById("start").value;
+    const end = document.getElementById("end").value;
+    const results = document.getElementById("results");
+    results.innerHTML = `<div class="scanning"><span class="spinner"></span>스캔 중... (포트 ${start}–${end})</div>`;
+
+    try {
+      const res = await fetch("/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start_port: start, end_port: end })
+      });
+      const devices = await res.json();
+      renderResults(devices, start, end);
+    } catch (e) {
+      results.innerHTML = `<div class="empty">스캔에 실패했습니다. 다시 시도해 주세요.</div>`;
+    } finally {
+      isScanning = false;
+      btn.disabled = false;
+    }
+  }
+
+  function renderResults(devices, start, end) {
+    const results = document.getElementById("results");
+    if (!devices.length) {
+      results.innerHTML = `<div class="empty">발견된 기기가 없습니다.</div>`;
+      return;
+    }
+
+    let html = `<div class="scan-meta">기기 ${devices.length}대 · 포트 범위 ${start}–${end}</div>`;
+    devices.forEach(d => {
+      const isGw = d.ip === gateway;
+      const isSelf = d.ip === myIp;
+      const tag = isGw ? `<span class="gw-tag">GATEWAY</span>`
+                : isSelf ? `<span class="self-tag">THIS PC</span>` : "";
+
+      let ports = "";
+      if (d.ports && d.ports.length) {
+        ports = `<div class="port-list">` + d.ports.map(p => {
+          const num = (typeof p === "object") ? p.port : p;
+          const proto = (typeof p === "object" && p.proto) ? p.proto : "";
+          return `<div class="port-chip"><span class="num">${num}</span>` +
+                 (proto ? `<span class="proto">${proto}</span>` : "") + `</div>`;
+        }).join("") + `</div>`;
+      } else {
+        ports = `<div class="no-ports">열린 포트 없음 (이 범위에서)</div>`;
+      }
+
+      html += `
+        <div class="device">
+          <div class="device-head">
+            <span class="ip">${d.ip}</span>${tag}
+            <span class="mac">${d.mac || ""}</span>
+          </div>
+          <div class="device-body">${ports}</div>
+        </div>`;
+    });
+    results.innerHTML = html;
+  }
+
+  // 시작: 즉시 1회 + 3초마다 폴링
+  checkNetwork();
+  setInterval(checkNetwork, 3000);
+</script>
+</body>
+</html>
