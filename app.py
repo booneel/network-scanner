@@ -4,12 +4,16 @@ from scapy.all import conf, ARP, Ether, srp
 import netifaces
 import ipaddress
 from concurrent.futures import ThreadPoolExecutor
+import psutil
 
 def get_protocol(port):
     try:
         return socket.getservbyport(port).upper()
     except OSError:
         return "unknown"
+
+'''
+실시간 인터넷 연결 상태 반영 문제 존재
 
 def is_connected():
     try:
@@ -20,9 +24,22 @@ def is_connected():
         return True
     except OSError:
         return False
+'''
+
+def is_wifi_connected():
+    stats = psutil.net_if_stats()
+    addrs = psutil.net_if_addrs()
+
+    for name, stat in stats.items():
+        if stat.isup and "Wi-Fi" in name:
+            for addr in addrs.get(name, []):
+                if addr.family == socket.AF_INET:
+                    return True
+    return False
+
 
 def get_network_info():
-    if not is_connected():
+    if not is_wifi_connected():
         return {"connected": False}
     try:
         gws = netifaces.gateways()
